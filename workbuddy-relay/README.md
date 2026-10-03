@@ -13,7 +13,7 @@
 
 ## 安装（复制一段话，粘贴给 WorkBuddy）
 
-打开落地页，点「复制安装口令」，粘贴到 WorkBuddy 对话框发送即可。口令里已经包含了完整技能内容，**不需要访问 GitHub**。
+打开落地页 https://liush2yuxjtu.github.io/workbuddy-relay/ ，点「复制安装口令」，粘贴到 WorkBuddy 对话框发送即可。口令里已经包含了完整技能内容，**不需要访问 GitHub**。
 
 也可以手动安装：把本仓库的 `workbuddy-relay` 文件夹（含 `SKILL.md` 和 `scripts/relay.py`）放到：
 

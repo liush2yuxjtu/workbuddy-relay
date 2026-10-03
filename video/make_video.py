@@ -25,7 +25,7 @@ SCENES = [
     ("ui", "install", "不用 GitHub，也不用装软件。复制一段安装口令，粘贴给 WorkBuddy，跟着它设置一次坚果云就好。", "复制安装口令 → 粘贴给 WorkBuddy"),
     ("clip", "14830", "公司做一半，回家一句话接着做。安装口令，看视频最后的网址。", "公司做一半，回家一句话接着做"),
 ]
-URL = "workbuddy-relay.vercel.app"
+URL = "liush2yuxjtu.github.io/workbuddy-relay"
 
 
 def sh(cmd, **kw):
@@ -243,7 +243,7 @@ async def caption_png(cap, out, cta=False):
           <div style='width:220px;height:70px;border-radius:35px;background:#F0B429;transform:rotate(-18deg);margin:0 auto 40px'></div>
           <div style='font-family:{SERIF};font-size:120px;font-weight:900;letter-spacing:8px'>接力包</div>
           <div style='font-size:42px;margin-top:20px;opacity:.85'>WorkBuddy 跨电脑接力技能</div>
-          <div style='margin-top:50px;font-size:48px;font-weight:800;color:#F0B429'>{URL}</div>
+          <div style='margin-top:50px;font-size:42px;font-weight:800;color:#F0B429;word-break:break-all'>{URL}</div>
           <div style='font-size:34px;margin-top:14px;opacity:.75'>打开网页 → 复制安装口令 → 粘贴给 WorkBuddy</div></div>"""
     doc = f"<html><head><meta charset='utf-8'><style>{BASE_CSS} body{{background:transparent}}</style></head><body>{extra}<div class='cap'><span>{html.escape(cap)}</span></div></body></html>"
     async with async_playwright() as p:
