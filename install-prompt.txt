@@ -1,0 +1,476 @@
+请帮我安装一个 WorkBuddy 技能「接力包」（workbuddy-relay），用来在多台电脑之间接着做同一件事，不需要访问 GitHub。
+
+请按这几步做，做完用大白话告诉我结果：
+1. 在我的用户主目录下创建文件夹：.workbuddy/skills/workbuddy-relay/scripts/（macOS 是 ~/.workbuddy/...，Windows 是 C:\Users\<我的用户名>\.workbuddy\...）。
+2. 把下面【文件一】的内容原样保存为 .workbuddy/skills/workbuddy-relay/SKILL.md
+3. 把下面【文件二】的内容原样保存为 .workbuddy/skills/workbuddy-relay/scripts/relay.py （一个字符都不要改，用 UTF-8 编码保存；建议用写文件工具一次写入，不要手敲）
+4. 找到能用的 Python（依次试 python3、python、WorkBuddy 自带的 ~/.workbuddy/binaries/python/versions/ 下的 python），运行：<python> <relay.py 的完整路径> --version ，应该输出 1.0.0。如果报错，对照【文件二】检查并修正后再试。
+5. 安装成功后，按 SKILL.md 里「引导设置」的步骤，一步一步带我完成第一次设置（推荐坚果云）。
+
+【文件一：SKILL.md】
+~~~~~~~~markdown
+---
+name: workbuddy-relay
+description: 接力包——让 WorkBuddy 的工作在多台电脑之间接力（公司电脑↔家里电脑↔笔记本），不用微信传文件、不需要 GitHub/Google Drive/Notion。当用户说"打包/存一下/下班了/换台电脑/明天在家继续/同步到另一台电脑"时，把本次对话的交接说明和产出文件打包上传；当用户说"接着做上次的/继续昨天的/取回接力包/另一台电脑上做的"时，取回最新接力包并继续工作。
+---
+
+# 接力包（WorkBuddy 跨电脑接力）
+
+## 这个技能解决什么
+
+用户在 A 电脑上和 WorkBuddy 做了一半的事，要到 B 电脑上继续。以前只能用"微信文件传输助手"来回传文件，对话上下文还会丢。
+本技能把 **"交接说明（对话精华）+ 产出文件"** 打成一个接力包，放进国内网盘（坚果云）或同步文件夹；另一台电脑一句话取回，WorkBuddy 读完交接说明就能接着干。
+
+用户是普通上班族，不是程序员。**和用户说话一律用大白话**，不要提 Python、WebDAV、命令行、路径这些词，除非用户问。
+
+## 第 0 步：找到能运行脚本的 Python（每次会话只做一次）
+
+脚本在本技能目录：`scripts/relay.py`（下文记作 `RELAY`，请用绝对路径；技能目录一般是 `~/.workbuddy/skills/workbuddy-relay/`）。
+
+按顺序试，第一个能输出版本号的就用它（下文记作 `PY`）：
+1. `python3 --version`
+2. `python --version`（Windows 上注意别是微软商店的假 python）
+3. WorkBuddy 自带的 Python：在 `~/.workbuddy/binaries/python/versions/` 下面找 `python3` 或 `python.exe`（macOS 一般在 `*/bin/python3`，Windows 在 `*\python.exe`，用文件搜索找到即可）
+
+要求 Python 3.8+。只用标准库，不需要 pip 安装任何东西。
+
+## 第 1 步：检查有没有设置过中转站
+
+运行 `PY RELAY status`。
+- 显示 `✅ 中转站正常` → 直接去第 2 步或第 3 步。
+- 显示"还没设置中转站" → 按下面引导用户 **只设置一次**（每台电脑各设置一次，填同一个账号）。
+
+### 引导设置（用大白话，一步一步）
+
+先问一句：**"你电脑上有没有正在用的、会自动同步的网盘文件夹？比如坚果云、百度网盘同步空间、OneDrive、iCloud 云盘。"**
+
+**A. 推荐：坚果云（免费、国内速度快、不用装软件）**
+告诉用户：
+1. 用浏览器打开 jianguoyun.com，用手机号注册/登录（免费版就够用：每月上传 1GB）。
+2. 点右上角头像 →「账户信息」→「安全选项」→ 找到「第三方应用管理」→ 点「添加应用密码」，名字随便填（比如 WorkBuddy）→「生成密码」。
+3. 把 **登录账号（邮箱或手机号）** 和 **刚生成的应用密码** 发给我。（提醒：是"应用密码"，不是登录密码。）
+
+拿到后运行：
+`PY RELAY setup webdav --user "账号" --password "应用密码"`
+成功后告诉用户"设置好了"，并提醒：**另一台电脑上也要装这个技能，填同一个账号和应用密码**（应用密码可以在坚果云里再看/再生成一个）。
+不要在之后的回复里重复显示密码。
+
+**B. 已经有同步文件夹 / 用 U 盘**
+请用户告诉你那个文件夹在哪（或者让用户把文件夹拖进对话框）。运行：
+`PY RELAY setup folder --path "那个文件夹"`
+提醒用户：两台电脑要用同一个网盘账号；用 U 盘的话，打包后把 U 盘带到另一台电脑，再设置成 U 盘里同一个文件夹。
+
+## 第 2 步：打包（用户要离开这台电脑时）
+
+1. **写交接说明**：在本次工作文件夹里新建 `交接.md`，按下面模板写，要让"另一台电脑上的、完全不记得这次对话的 WorkBuddy"看完就能接着干：
+
+```markdown
+# 交接：<一句话主题>
+- 打包时间：<日期时间>　来自：<这台电脑>
+
+## 用户想要什么
+<用户的原始需求，尽量保留原话；有格式/风格/对象等要求都写上>
+
+## 已经做完的
+- ...
+
+## 关键决定和用户的偏好
+- <用户确认过的选择、否掉的方案、口味偏好、数据口径>
+
+## 还没做完的 / 下一步
+1. <最具体的下一步>
+2. ...
+
+## 文件清单
+- 文件/xxx.xlsx —— <一句话说明是什么、是不是最终版>
+
+## 重要对话摘录（可选）
+> <用户说过的关键原话>
+```
+
+2. **选文件**：默认带上本次对话产出或用到的文件（当前工作文件夹里的成果文件 + 用户提到的文件）。临时文件、安装包、缓存不要带。单个文件超过 400MB（比如长视频）不要带，告诉用户用 U 盘单独传。
+3. 运行：
+`PY RELAY push --title "<简短主题>" --note "<交接.md 的路径>" --files <文件或文件夹1> <文件或文件夹2> ...`
+4. 用大白话汇报，例如：
+"已经打好接力包啦：交接说明 + 6 个文件。到另一台电脑上打开 WorkBuddy，说一句 **『接着做上次的』** 就行。"
+
+## 第 3 步：取回并接着做（在另一台电脑上）
+
+1. 运行 `PY RELAY list`，看有哪些接力包。
+   - 用户没指定 → 用最新的；用户提了主题（比如"那个季度报告"）→ 用标题匹配的那个。
+2. 运行 `PY RELAY pull <latest 或 序号 或 主题关键词>`
+   - 默认放到 `~/WorkBuddy/接力/<包名>/`；输出里 `NOTE_PATH=` 就是交接说明，脚本会把内容直接打印出来。
+3. **完整读一遍交接说明**，然后用 3～5 句话告诉用户："上次做到了…，你当时定了…，下一步我打算…，要我直接开始吗？"
+   用户同意（或用户一开始就说了要做什么）就 **在取回的文件夹里** 接着干，产出也放在那里。
+4. 做完这一轮，主动问一句："要不要再打个接力包，方便你换电脑继续？"
+
+## 主动提醒
+
+- 用户说"今天先到这""下班了""回家再弄""明天继续"等，主动问：**"要不要打个接力包？到另一台电脑一句话就能接着做。"**
+- 新会话一开始用户说"继续/接着弄"但当前对话里没有上下文，先 `PY RELAY list` 看看有没有接力包。
+
+## 出错时怎么跟用户说
+
+| 脚本提示 | 跟用户说 |
+|---|---|
+| 账号或应用密码不对 | "坚果云账号或应用密码好像不对，注意要用『第三方应用密码』，不是登录密码。重新发我一下？" |
+| 网盘拒绝了请求 / 请求太频繁 | "坚果云这会儿有点忙（免费版半小时限 600 次请求，或本月流量用完了），过半小时再试，或者先用 U 盘。" |
+| 连不上网盘 | "网络好像连不上坚果云，检查一下网络再试。" |
+| 找不到接力包（同步文件夹模式）| "网盘可能还没同步完，等一两分钟再试。" |
+| 太大没带上 | "这几个大文件太大没放进去，建议用 U 盘单独拷。" |
+
+## 安全
+
+- 账号和应用密码只保存在本机 `~/.workbuddy-relay/config.json`（仅本人可读），不要写进交接说明、不要打包、不要在回复里显示。
+- 交接说明里不要写密码、身份证号、银行卡号等敏感信息。
+- 取回时只解压到指定文件夹，不覆盖用户其他文件。
+~~~~~~~~
+
+【文件二：scripts/relay.py】（校验码 f8c2add1c0f4）
+~~~~~~~~python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+接力包 relay.py —— 让 WorkBuddy 的工作在多台电脑之间接力（不需要 GitHub / Google Drive / Notion）
+
+只用 Python 标准库。两种"中转站"：
+  webdav : 坚果云等支持 WebDAV 的国内网盘（推荐，免装客户端）
+  folder : 任何会自动同步的文件夹（坚果云/百度网盘同步空间/OneDrive/iCloud）或 U 盘
+
+用法：
+  relay.py setup webdav --user 邮箱 --password 应用密码 [--url https://dav.jianguoyun.com/dav/]
+  relay.py setup folder --path "D:/坚果云/WorkBuddy接力"
+  relay.py status
+  relay.py push --title 主题 --note 交接.md [--files 文件或文件夹 ...]
+  relay.py list [-n 10]
+  relay.py pull [包名|latest] [--to 目录]
+"""
+import argparse, base64, datetime, json, os, platform, re, shutil, socket, ssl, sys
+import tempfile, urllib.error, urllib.parse, urllib.request, zipfile
+import xml.etree.ElementTree as ET
+
+VERSION = "1.0.0"
+HOME = os.path.expanduser("~")
+CONF_DIR = os.path.join(HOME, ".workbuddy-relay")
+CONF = os.path.join(CONF_DIR, "config.json")
+DEFAULT_URL = "https://dav.jianguoyun.com/dav/"
+ROOT = "WorkBuddy接力"
+SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", ".DS_Store", ".idea"}
+SKIP_FILES = {".DS_Store", "Thumbs.db", "desktop.ini"}
+MAX_FILE = 400 * 1024 * 1024  # 坚果云单文件上限 500MB，留余量
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+
+def die(msg, code=1):
+    print("❌ " + msg)
+    sys.exit(code)
+
+
+def human(n):
+    for u in ["B", "KB", "MB", "GB"]:
+        if n < 1024:
+            return f"{n:.0f}{u}" if u == "B" else f"{n:.1f}{u}"
+        n /= 1024
+    return f"{n:.1f}TB"
+
+
+def load_conf():
+    if not os.path.exists(CONF):
+        die("还没设置中转站。请先运行 setup（坚果云或同步文件夹）。", 2)
+    with open(CONF, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_conf(c):
+    os.makedirs(CONF_DIR, exist_ok=True)
+    with open(CONF, "w", encoding="utf-8") as f:
+        json.dump(c, f, ensure_ascii=False, indent=2)
+    try:
+        os.chmod(CONF, 0o600)
+    except Exception:
+        pass
+
+
+def device_name():
+    name = os.environ.get("RELAY_DEVICE") or os.environ.get("COMPUTERNAME", "")
+    if not name and platform.system() == "Darwin":
+        try:
+            import subprocess
+            name = subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True, timeout=5).stdout.strip()
+        except Exception:
+            name = ""
+    name = name or socket.gethostname().split(".")[0]
+    name = re.sub(r"[^\w\-]", "", name)[:20]
+    return "我的电脑" if (not name or name.isdigit()) else name
+
+
+def safe(s):
+    s = re.sub(r'[\\/:*?"<>|\s]+', "-", s.strip())
+    return s.strip("-")[:40] or "未命名"
+
+
+# ---------------- 中转站：WebDAV ----------------
+class WebDAV:
+    def __init__(self, c):
+        self.base = c["url"].rstrip("/") + "/"
+        tok = base64.b64encode(f'{c["user"]}:{c["password"]}'.encode()).decode()
+        self.auth = "Basic " + tok
+        self.root = c.get("root", ROOT)
+        self.ctx = ssl.create_default_context()
+
+    def _url(self, *parts):
+        segs = [self.root] + [p for p in parts if p]
+        return self.base + "/".join(urllib.parse.quote(s) for s in segs)
+
+    def req(self, method, url, data=None, headers=None, ok=(200, 201, 204, 207)):
+        h = {"Authorization": self.auth, "User-Agent": "workbuddy-relay/" + VERSION}
+        h.update(headers or {})
+        r = urllib.request.Request(url, data=data, method=method, headers=h)
+        try:
+            with urllib.request.urlopen(r, context=self.ctx, timeout=120) as resp:
+                return resp.status, resp.read()
+        except urllib.error.HTTPError as e:
+            if e.code in ok:
+                return e.code, e.read()
+            if e.code == 401:
+                die("账号或应用密码不对（注意：要用坚果云『第三方应用密码』，不是登录密码）。")
+            if e.code in (403, 503, 429):
+                die(f"网盘拒绝了请求（{e.code}），可能是请求太频繁或空间/流量用完，过半小时再试。")
+            return e.code, b""
+        except urllib.error.URLError as e:
+            die(f"连不上网盘：{e.reason}。请检查网络。")
+
+    def ensure_root(self):
+        code, _ = self.req("MKCOL", self._url(), ok=(201, 405, 301))
+        return code in (201, 405, 301, 200)
+
+    def test(self):
+        code, _ = self.req("PROPFIND", self.base, headers={"Depth": "0"}, ok=(207, 200))
+        if code not in (207, 200):
+            die(f"连接测试失败（{code}）。")
+        self.ensure_root()
+
+    def put(self, local, name):
+        with open(local, "rb") as f:
+            data = f.read()
+        code, _ = self.req("PUT", self._url(name), data=data,
+                           headers={"Content-Type": "application/zip"})
+        if code not in (200, 201, 204):
+            die(f"上传失败（{code}）。")
+
+    def list(self):
+        code, body = self.req("PROPFIND", self._url() + "/", headers={"Depth": "1"}, ok=(207,))
+        if code == 404:
+            return []
+        out = []
+        ns = {"d": "DAV:"}
+        for resp in ET.fromstring(body).findall("d:response", ns):
+            href = urllib.parse.unquote(resp.findtext("d:href", "", ns))
+            name = href.rstrip("/").split("/")[-1]
+            if not name.endswith(".zip"):
+                continue
+            size = resp.findtext(".//d:getcontentlength", "0", ns)
+            out.append((name, int(size or 0)))
+        return out
+
+    def get(self, name, dest):
+        code, data = self.req("GET", self._url(name), ok=(200,))
+        if code != 200:
+            die(f"找不到接力包：{name}")
+        with open(dest, "wb") as f:
+            f.write(data)
+
+
+# ---------------- 中转站：同步文件夹 / U 盘 ----------------
+class Folder:
+    def __init__(self, c):
+        self.dir = os.path.join(c["path"], c.get("root", ROOT)) if c.get("nest", True) else c["path"]
+
+    def test(self):
+        os.makedirs(self.dir, exist_ok=True)
+        t = os.path.join(self.dir, ".relay-test")
+        with open(t, "w") as f:
+            f.write("ok")
+        os.remove(t)
+
+    def put(self, local, name):
+        os.makedirs(self.dir, exist_ok=True)
+        shutil.copyfile(local, os.path.join(self.dir, name))
+
+    def list(self):
+        if not os.path.isdir(self.dir):
+            return []
+        return [(n, os.path.getsize(os.path.join(self.dir, n)))
+                for n in os.listdir(self.dir) if n.endswith(".zip")]
+
+    def get(self, name, dest):
+        src = os.path.join(self.dir, name)
+        if not os.path.exists(src):
+            die(f"找不到接力包：{name}（如果是网盘同步文件夹，可能还没同步下来，稍等一会儿）")
+        shutil.copyfile(src, dest)
+
+
+def store(c):
+    return WebDAV(c) if c["mode"] == "webdav" else Folder(c)
+
+
+# ---------------- 命令 ----------------
+def cmd_setup(a):
+    if a.mode == "webdav":
+        if not (a.user and a.password):
+            die("需要 --user（坚果云账号邮箱/手机号）和 --password（第三方应用密码）")
+        c = {"mode": "webdav", "url": a.url or DEFAULT_URL, "user": a.user,
+             "password": a.password, "root": ROOT}
+    else:
+        if not a.path:
+            die("需要 --path（同步文件夹或 U 盘里的一个文件夹）")
+        c = {"mode": "folder", "path": os.path.abspath(os.path.expanduser(a.path)), "root": ROOT}
+    store(c).test()
+    c["device"] = device_name()
+    save_conf(c)
+    where = "坚果云（WebDAV）" if c["mode"] == "webdav" else c["path"]
+    print(f"✅ 中转站已设置好：{where}\n   这台电脑叫：{c['device']}\n   配置保存在：{CONF}")
+
+
+def cmd_status(a):
+    c = load_conf()
+    s = store(c)
+    s.test()
+    pk = sorted(s.list(), reverse=True)
+    where = f"坚果云 WebDAV（{c['user']}）" if c["mode"] == "webdav" else c["path"]
+    print(f"✅ 中转站正常：{where}\n   这台电脑：{c.get('device', device_name())}\n   现有接力包：{len(pk)} 个")
+
+
+def collect(paths):
+    files = []
+    for p in paths:
+        p = os.path.abspath(os.path.expanduser(p))
+        if os.path.isfile(p):
+            files.append((p, os.path.basename(p)))
+        elif os.path.isdir(p):
+            base = os.path.basename(p.rstrip("/\\")) or "文件夹"
+            for root, dirs, fs in os.walk(p):
+                dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
+                for f in fs:
+                    if f in SKIP_FILES or f.startswith("~$"):
+                        continue
+                    full = os.path.join(root, f)
+                    files.append((full, os.path.join(base, os.path.relpath(full, p))))
+        else:
+            print(f"⚠️ 跳过（不存在）：{p}")
+    return files
+
+
+def cmd_push(a):
+    c = load_conf()
+    if not os.path.isfile(a.note):
+        die(f"找不到交接说明：{a.note}")
+    seen, files = {os.path.realpath(a.note)}, []
+    for full, arc in collect(a.files or []):
+        rp = os.path.realpath(full)
+        if rp not in seen:
+            seen.add(rp)
+            files.append((full, arc))
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    name = f"{stamp}_{safe(a.title)}_{c.get('device', device_name())}.zip"
+    tmp = os.path.join(tempfile.gettempdir(), name)
+    kept, skipped, total = [], [], 0
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
+        z.write(a.note, "交接.md")
+        for full, arc in files:
+            sz = os.path.getsize(full)
+            if sz > MAX_FILE:
+                skipped.append((arc, sz))
+                continue
+            z.write(full, os.path.join("文件", arc).replace("\\", "/"))
+            kept.append({"path": arc.replace("\\", "/"), "size": sz})
+            total += sz
+        meta = {"title": a.title, "from": c.get("device"), "time": datetime.datetime.now().isoformat(timespec="minutes"),
+                "files": kept, "skipped": [s[0] for s in skipped], "version": VERSION}
+        z.writestr("manifest.json", json.dumps(meta, ensure_ascii=False, indent=2))
+    zsize = os.path.getsize(tmp)
+    if zsize > MAX_FILE:
+        os.remove(tmp)
+        die(f"打包后 {human(zsize)}，太大了。请少带几个大文件（比如视频）再试。")
+    store(c).put(tmp, name)
+    os.remove(tmp)
+    print(f"✅ 已打包上传：{name}\n   交接说明 + {len(kept)} 个文件（原始 {human(total)}，压缩后 {human(zsize)}）")
+    for arc, sz in skipped:
+        print(f"⚠️ 太大没带上：{arc}（{human(sz)}）—— 这类大文件请用 U 盘或网盘单独传")
+    print("👉 到另一台电脑的 WorkBuddy 里说：『接着做上次的』")
+
+
+def cmd_list(a):
+    c = load_conf()
+    pk = sorted(store(c).list(), reverse=True)[: a.n]
+    if not pk:
+        print("（中转站里还没有接力包）")
+        return
+    print("最近的接力包（新→旧）：")
+    for i, (n, sz) in enumerate(pk, 1):
+        m = re.match(r"(\d{8})-(\d{4})_(.+)_(.+)\.zip$", n)
+        if m:
+            d, t, title, dev = m.groups()
+            print(f"{i}. {d[4:6]}月{d[6:]}日 {t[:2]}:{t[2:]} ｜ {title} ｜ 来自 {dev} ｜ {human(sz)}  [{n}]")
+        else:
+            print(f"{i}. {n}  {human(sz)}")
+
+
+def cmd_pull(a):
+    c = load_conf()
+    s = store(c)
+    pk = sorted(s.list(), reverse=True)
+    if not pk:
+        die("中转站里还没有接力包。请先在另一台电脑上打包。")
+    target = a.name or "latest"
+    if target == "latest":
+        name = pk[0][0]
+    elif target.isdigit() and 1 <= int(target) <= len(pk):
+        name = pk[int(target) - 1][0]
+    else:
+        hits = [n for n, _ in pk if target in n]
+        if not hits:
+            die(f"没找到包含『{target}』的接力包，可以先运行 list 看看。")
+        name = hits[0]
+    to = os.path.abspath(os.path.expanduser(a.to or os.path.join(HOME, "WorkBuddy", "接力")))
+    dest = os.path.join(to, name[:-4])
+    os.makedirs(dest, exist_ok=True)
+    tmp = os.path.join(tempfile.gettempdir(), name)
+    s.get(name, tmp)
+    with zipfile.ZipFile(tmp) as z:
+        for info in z.infolist():
+            p = os.path.normpath(os.path.join(dest, info.filename))
+            if not p.startswith(os.path.normpath(dest)):
+                continue  # 防止路径穿越
+            z.extract(info, dest)
+    os.remove(tmp)
+    note = os.path.join(dest, "交接.md")
+    print(f"✅ 已取回：{name}\n   放在：{dest}\nNOTE_PATH={note}\n")
+    if os.path.exists(note):
+        with open(note, encoding="utf-8") as f:
+            print("======== 交接.md ========\n" + f.read())
+
+
+def main():
+    p = argparse.ArgumentParser(description="WorkBuddy 接力包")
+    p.add_argument("--version", action="version", version=VERSION)
+    sp = p.add_subparsers(dest="cmd", required=True)
+    s = sp.add_parser("setup"); s.add_argument("mode", choices=["webdav", "folder"])
+    s.add_argument("--user"); s.add_argument("--password"); s.add_argument("--url"); s.add_argument("--path")
+    sp.add_parser("status")
+    s = sp.add_parser("push"); s.add_argument("--title", required=True); s.add_argument("--note", required=True)
+    s.add_argument("--files", nargs="*")
+    s = sp.add_parser("list"); s.add_argument("-n", type=int, default=10)
+    s = sp.add_parser("pull"); s.add_argument("name", nargs="?"); s.add_argument("--to")
+    a = p.parse_args()
+    {"setup": cmd_setup, "status": cmd_status, "push": cmd_push, "list": cmd_list, "pull": cmd_pull}[a.cmd](a)
+
+
+if __name__ == "__main__":
+    main()
+~~~~~~~~

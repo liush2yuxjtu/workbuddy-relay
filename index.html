@@ -320,7 +320,7 @@ description: 接力包——让 WorkBuddy 的工作在多台电脑之间接力�
 - 取回时只解压到指定文件夹，不覆盖用户其他文件。
 ~~~~~~~~
 
-【文件二：scripts/relay.py】（校验码 ca6aef3a2f3c）
+【文件二：scripts/relay.py】（校验码 f8c2add1c0f4）
 ~~~~~~~~python
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
@@ -391,7 +391,16 @@ def save_conf(c):
 
 
 def device_name():
-    return re.sub(r&quot;[^\w\-]&quot;, &quot;&quot;, socket.gethostname().split(&quot;.&quot;)[0])[:20] or &quot;电脑&quot;
+    name = os.environ.get(&quot;RELAY_DEVICE&quot;) or os.environ.get(&quot;COMPUTERNAME&quot;, &quot;&quot;)
+    if not name and platform.system() == &quot;Darwin&quot;:
+        try:
+            import subprocess
+            name = subprocess.run([&quot;scutil&quot;, &quot;--get&quot;, &quot;ComputerName&quot;], capture_output=True, text=True, timeout=5).stdout.strip()
+        except Exception:
+            name = &quot;&quot;
+    name = name or socket.gethostname().split(&quot;.&quot;)[0]
+    name = re.sub(r&quot;[^\w\-]&quot;, &quot;&quot;, name)[:20]
+    return &quot;我的电脑&quot; if (not name or name.isdigit()) else name
 
 
 def safe(s):
