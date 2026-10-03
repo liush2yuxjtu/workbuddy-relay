@@ -67,7 +67,16 @@ def save_conf(c):
 
 
 def device_name():
-    return re.sub(r"[^\w\-]", "", socket.gethostname().split(".")[0])[:20] or "电脑"
+    name = os.environ.get("RELAY_DEVICE") or os.environ.get("COMPUTERNAME", "")
+    if not name and platform.system() == "Darwin":
+        try:
+            import subprocess
+            name = subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True, timeout=5).stdout.strip()
+        except Exception:
+            name = ""
+    name = name or socket.gethostname().split(".")[0]
+    name = re.sub(r"[^\w\-]", "", name)[:20]
+    return "我的电脑" if (not name or name.isdigit()) else name
 
 
 def safe(s):

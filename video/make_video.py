@@ -47,7 +47,7 @@ def real_run():
     time.sleep(3)
     try:
         def run(home, *args, cwd=None):
-            env = dict(os.environ, HOME=str(home), USERPROFILE=str(home))
+            env = dict(os.environ, HOME=str(home), USERPROFILE=str(home), RELAY_DEVICE=home.name)
             r = subprocess.run([PY, str(RELAY), *args], env=env, cwd=cwd, capture_output=True, text=True)
             return (r.stdout + r.stderr).strip()
         a = TMP / "公司电脑"; b = TMP / "家里电脑"
